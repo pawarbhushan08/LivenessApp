@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bhushan.android.presentation.camera.model.CameraIntent
@@ -28,6 +27,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import org.koin.androidx.compose.koinViewModel
+
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraViewScreen(
@@ -39,18 +39,13 @@ fun CameraViewScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Set context and lifecycle owner on the ViewModel (once)
-    LaunchedEffect(Unit) {
-        viewModel.setContextAndOwner(context.applicationContext, lifecycleOwner)
-    }
-
     // When permission changes, dispatch intent
-    LaunchedEffect(cameraPermissionState.status.isGranted) {
-        viewModel.processIntent(CameraIntent.PermissionResult(cameraPermissionState.status.isGranted))
+    LaunchedEffect(cameraPermissionState.status) {
+        viewModel.handleIntent(CameraIntent.PermissionResult(cameraPermissionState.status.isGranted))
         if (cameraPermissionState.status.isGranted) {
-            viewModel.processIntent(CameraIntent.BindCamera)
+            viewModel.handleIntent(CameraIntent.BindCamera, context, lifecycleOwner)
         } else {
-            viewModel.processIntent(CameraIntent.UnbindCamera)
+            viewModel.handleIntent(CameraIntent.UnbindCamera)
         }
     }
 

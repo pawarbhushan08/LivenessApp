@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
-import androidx.camera.core.SurfaceRequest
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
 import androidx.lifecycle.LifecycleOwner
@@ -15,7 +14,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,13 +24,8 @@ class CameraViewModel : ViewModel() {
     private val _state = MutableStateFlow(CameraViewState())
     val state: StateFlow<CameraViewState> = _state.asStateFlow()
 
-    private val intentChannel = MutableSharedFlow<CameraIntent>(extraBufferCapacity = 8)
     private var cameraJob: Job? = null
     private var processCameraProvider: ProcessCameraProvider? = null
-
-    // Provide context/lifecycle if needed (e.g., via setters or processIntent)
-    private var currentContext: Context? = null
-    private var currentLifecycleOwner: LifecycleOwner? = null
 
     private val cameraPreviewUseCase = Preview.Builder().build().apply {
         setSurfaceProvider { newSurfaceRequest ->
@@ -40,26 +33,19 @@ class CameraViewModel : ViewModel() {
         }
     }
 
-    init {
-        CoroutineScope(Dispatchers.Main).launch {
-            intentChannel.collect { intent ->
-                handleIntent(intent)
-            }
-        }
-    }
-
-    fun processIntent(intent: CameraIntent) {
-        intentChannel.tryEmit(intent)
-    }
-
-    private fun handleIntent(intent: CameraIntent) {
+    fun handleIntent(
+        intent: CameraIntent,
+        context: Context? = null,
+        lifecycleOwner: LifecycleOwner? = null
+    ) {
         when (intent) {
             is CameraIntent.PermissionResult -> {
                 _state.update { it.copy(hasPermission = intent.granted) }
             }
+
             is CameraIntent.BindCamera -> {
                 if (_state.value.hasPermission && !_state.value.isCameraBound) {
-                    bindCameraInternal()
+                    bindCameraInternal(context, lifecycleOwner)
                 }
             }
             is CameraIntent.UnbindCamera -> {
@@ -68,18 +54,19 @@ class CameraViewModel : ViewModel() {
         }
     }
 
-    private fun bindCameraInternal() {
+    private fun bindCameraInternal(context: Context?, lifecycleOwner: LifecycleOwner?) {
         cameraJob?.cancel()
         cameraJob = CoroutineScope(Dispatchers.Main).launch {
             try {
-                val ctx = currentContext as? Context ?: return@launch
-                val owner = currentLifecycleOwner as? LifecycleOwner ?: return@launch
-                processCameraProvider = ProcessCameraProvider.awaitInstance(context = ctx)
+                processCameraProvider =
+                    ProcessCameraProvider.awaitInstance(context = context ?: return@launch)
                 val hasCamera = CameraSelector.DEFAULT_BACK_CAMERA
                     .filter(processCameraProvider!!.availableCameraInfos).isNotEmpty()
                 if (hasCamera) {
                     processCameraProvider!!.bindToLifecycle(
-                        owner, CameraSelector.DEFAULT_BACK_CAMERA, cameraPreviewUseCase
+                        lifecycleOwner ?: return@launch,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        cameraPreviewUseCase
                     )
                     _state.update { it.copy(isCameraBound = true, error = null) }
                 } else {
@@ -100,11 +87,6 @@ class CameraViewModel : ViewModel() {
         cameraJob?.cancel()
         processCameraProvider?.unbindAll()
         _state.update { it.copy(isCameraBound = false, surfaceRequest = null) }
-    }
-
-    fun setContextAndOwner(context: Context, lifecycleOwner: LifecycleOwner) {
-        this.currentContext = context
-        this.currentLifecycleOwner = lifecycleOwner
     }
 
     override fun onCleared() {
