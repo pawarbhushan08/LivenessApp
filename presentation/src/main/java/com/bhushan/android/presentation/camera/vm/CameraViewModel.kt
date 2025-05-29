@@ -33,11 +33,7 @@ class CameraViewModel : ViewModel() {
         }
     }
 
-    fun handleIntent(
-        intent: CameraIntent,
-        context: Context? = null,
-        lifecycleOwner: LifecycleOwner? = null
-    ) {
+    fun handleIntent(intent: CameraIntent) {
         when (intent) {
             is CameraIntent.PermissionResult -> {
                 _state.update { it.copy(hasPermission = intent.granted) }
@@ -45,7 +41,7 @@ class CameraViewModel : ViewModel() {
 
             is CameraIntent.BindCamera -> {
                 if (_state.value.hasPermission && !_state.value.isCameraBound) {
-                    bindCameraInternal(context, lifecycleOwner)
+                    bindCameraInternal(intent.context, intent.lifecycleOwner)
                 }
             }
             is CameraIntent.UnbindCamera -> {

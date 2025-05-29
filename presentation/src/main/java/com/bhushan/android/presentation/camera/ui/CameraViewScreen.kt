@@ -43,7 +43,7 @@ fun CameraViewScreen(
     LaunchedEffect(cameraPermissionState.status) {
         viewModel.handleIntent(CameraIntent.PermissionResult(cameraPermissionState.status.isGranted))
         if (cameraPermissionState.status.isGranted) {
-            viewModel.handleIntent(CameraIntent.BindCamera, context, lifecycleOwner)
+            viewModel.handleIntent(CameraIntent.BindCamera(context, lifecycleOwner))
         } else {
             viewModel.handleIntent(CameraIntent.UnbindCamera)
         }
