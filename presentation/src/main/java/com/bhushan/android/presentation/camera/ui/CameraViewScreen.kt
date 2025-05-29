@@ -20,37 +20,58 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bhushan.android.presentation.camera.model.CameraIntent
+import com.bhushan.android.presentation.camera.model.CameraViewState
 import com.bhushan.android.presentation.camera.vm.CameraViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import org.koin.androidx.compose.koinViewModel
-
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraViewScreen(modifier: Modifier = Modifier) {
-
+fun CameraViewScreen(
+    modifier: Modifier = Modifier,
+    viewModel: CameraViewModel = koinViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    if (cameraPermissionState.status.isGranted) {
-        CameraViewContent(modifier = modifier)
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // Set context and lifecycle owner on the ViewModel (once)
+    LaunchedEffect(Unit) {
+        viewModel.setContextAndOwner(context.applicationContext, lifecycleOwner)
+    }
+
+    // When permission changes, dispatch intent
+    LaunchedEffect(cameraPermissionState.status.isGranted) {
+        viewModel.processIntent(CameraIntent.PermissionResult(cameraPermissionState.status.isGranted))
+        if (cameraPermissionState.status.isGranted) {
+            viewModel.processIntent(CameraIntent.BindCamera)
+        } else {
+            viewModel.processIntent(CameraIntent.UnbindCamera)
+        }
+    }
+
+    if (state.hasPermission) {
+        CameraViewContent(
+            state = state,
+            modifier = modifier
+        )
     } else {
+        // ... your permission rationale UI ...
         Column(
-            modifier = modifier.fillMaxSize().wrapContentSize().widthIn(max = 480.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .wrapContentSize()
+                .widthIn(max = 480.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             val textToShow = if (cameraPermissionState.status.shouldShowRationale) {
-                // If the user has denied the permission but the rationale can be shown,
-                // then gently explain why the app requires this permission
                 "Hey there, superstar! We need a peek through your camera to make the magic happen.✨"
-                "Don’t stress — we’re just checking that it’s really you (not a cardboard cutout or a sneaky cat 🐱)."
-                "Hit that permission button and let’s roll!"
             } else {
-                // If it's the first time the user lands on this feature, or the user
-                // doesn't want to be asked again for this permission, explain that the
-                // permission is required
-                "Hi there! We need your camera to work our magic! ✨\n" +
-                        "Grant us permission and let's get this party started! \uD83C\uDF89"
+                "Hi there! We need your camera to work our magic! ✨\nGrant us permission and let's get this party started! 🎉"
             }
             Text(textToShow, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
@@ -59,21 +80,19 @@ fun CameraViewScreen(modifier: Modifier = Modifier) {
             }
         }
     }
+
+    // Optionally show errors from state
+    state.error?.let { error ->
+        // Show error dialog/toast/snackbar as needed
+    }
 }
 
 @Composable
 fun CameraViewContent(
-    viewModel: CameraViewModel = koinViewModel(),
+    state: CameraViewState,
     modifier: Modifier = Modifier,
-    lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
 ) {
-    val surfaceRequest by viewModel.surfaceRequest.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    LaunchedEffect(lifecycleOwner) {
-        viewModel.bindToCamera(context.applicationContext, lifecycleOwner)
-    }
-
-    surfaceRequest?.let { request ->
+    state.surfaceRequest?.let { request ->
         CameraXViewfinder(
             surfaceRequest = request,
             modifier = modifier
