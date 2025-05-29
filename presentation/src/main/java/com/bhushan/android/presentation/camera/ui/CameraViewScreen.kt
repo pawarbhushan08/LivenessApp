@@ -29,11 +29,11 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
-fun CameraPreviewScreen(modifier: Modifier = Modifier) {
+fun CameraViewScreen(modifier: Modifier = Modifier) {
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     if (cameraPermissionState.status.isGranted) {
-        CameraPreviewContent(modifier = modifier)
+        CameraViewContent(modifier = modifier)
     } else {
         Column(
             modifier = modifier.fillMaxSize().wrapContentSize().widthIn(max = 480.dp),
@@ -42,9 +42,9 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
             val textToShow = if (cameraPermissionState.status.shouldShowRationale) {
                 // If the user has denied the permission but the rationale can be shown,
                 // then gently explain why the app requires this permission
-                "Whoops! Looks like we need your camera to work our magic!" +
-                        "Don't worry, we just wanna see your pretty face (and maybe some cats).  " +
-                        "Grant us permission and let's get this party started!"
+                "Hey there, superstar! We need a peek through your camera to make the magic happen.✨"
+                "Don’t stress — we’re just checking that it’s really you (not a cardboard cutout or a sneaky cat 🐱)."
+                "Hit that permission button and let’s roll!"
             } else {
                 // If it's the first time the user lands on this feature, or the user
                 // doesn't want to be asked again for this permission, explain that the
@@ -62,7 +62,7 @@ fun CameraPreviewScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CameraPreviewContent(
+fun CameraViewContent(
     viewModel: CameraViewModel = koinViewModel(),
     modifier: Modifier = Modifier,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
