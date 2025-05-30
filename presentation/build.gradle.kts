@@ -40,7 +40,7 @@ android {
 }
 
 dependencies {
-
+    implementation(project(path = ":nativelib"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

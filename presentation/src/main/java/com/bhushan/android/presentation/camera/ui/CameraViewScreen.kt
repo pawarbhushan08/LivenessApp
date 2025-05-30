@@ -1,20 +1,26 @@
 package com.bhushan.android.presentation.camera.ui
 
 import androidx.camera.compose.CameraXViewfinder
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -53,6 +59,12 @@ fun CameraViewScreen(
         CameraViewContent(
             state = state,
             modifier = modifier
+        )
+        // Overlay for blink status
+        BlinkStatusOverlay(
+            isSleeping = state.isSleeping,
+            modifier = Modifier
+                .padding(top = 48.dp)
         )
     } else {
         // ... your permission rationale UI ...
@@ -93,4 +105,26 @@ fun CameraViewContent(
             modifier = modifier
         )
     }
+}
+
+
+@Composable
+fun BlinkStatusOverlay(
+    isSleeping: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val (status, color) = if (isSleeping) {
+        "SLEEPING" to MaterialTheme.colorScheme.inversePrimary // Green
+    } else {
+        "AWAKE" to MaterialTheme.colorScheme.error // Red
+    }
+    Text(
+        text = status,
+        color = color,
+        style = MaterialTheme.typography.headlineLarge,
+        fontWeight = FontWeight.Bold,
+        modifier = modifier
+            .background(Color.Black.copy(alpha = 0.3f), shape = RoundedCornerShape(16.dp))
+            .padding(horizontal = 32.dp, vertical = 16.dp)
+    )
 }

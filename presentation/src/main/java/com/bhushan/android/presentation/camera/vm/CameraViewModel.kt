@@ -3,6 +3,7 @@ package com.bhushan.android.presentation.camera.vm
 import android.content.Context
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
@@ -10,6 +11,9 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import com.bhushan.android.presentation.camera.model.CameraIntent
 import com.bhushan.android.presentation.camera.model.CameraViewState
+import com.bhushan.android.presentation.camera.utils.analyser.BlinkAnalyzer
+import com.bhushan.android.presentation.camera.utils.analyser.BlinkListener
+import com.bhushan.android.presentation.camera.utils.assets.AssetRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,11 +23,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.concurrent.Executors
 
-class CameraViewModel : ViewModel() {
+class CameraViewModel(assetRepository: AssetRepository) : ViewModel(), BlinkListener {
     private val _state = MutableStateFlow(CameraViewState())
     val state: StateFlow<CameraViewState> = _state.asStateFlow()
-
+    val analyzer = BlinkAnalyzer(this, assetRepository)
     private var cameraJob: Job? = null
     private var processCameraProvider: ProcessCameraProvider? = null
 
@@ -44,6 +49,7 @@ class CameraViewModel : ViewModel() {
                     bindCameraInternal(intent.context, intent.lifecycleOwner)
                 }
             }
+
             is CameraIntent.UnbindCamera -> {
                 unbindCameraInternal()
             }
@@ -59,10 +65,17 @@ class CameraViewModel : ViewModel() {
                 val hasCamera = CameraSelector.DEFAULT_BACK_CAMERA
                     .filter(processCameraProvider!!.availableCameraInfos).isNotEmpty()
                 if (hasCamera) {
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build().apply {
+                            setAnalyzer(Executors.newSingleThreadExecutor(), analyzer)
+                        }
+
                     processCameraProvider!!.bindToLifecycle(
                         lifecycleOwner ?: return@launch,
                         CameraSelector.DEFAULT_BACK_CAMERA,
-                        cameraPreviewUseCase
+                        cameraPreviewUseCase,
+                        imageAnalysis
                     )
                     _state.update { it.copy(isCameraBound = true, error = null) }
                 } else {
@@ -89,5 +102,9 @@ class CameraViewModel : ViewModel() {
         super.onCleared()
         cameraJob?.cancel()
         processCameraProvider?.unbindAll()
+    }
+
+    override fun onBlinkDetected(isSleeping: Boolean) {
+        _state.update { it.copy(isSleeping = isSleeping) }
     }
 }
