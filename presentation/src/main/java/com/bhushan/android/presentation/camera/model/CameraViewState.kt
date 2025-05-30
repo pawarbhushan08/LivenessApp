@@ -6,5 +6,6 @@ data class CameraViewState(
     val hasPermission: Boolean = false,
     val isCameraBound: Boolean = false,
     val surfaceRequest: SurfaceRequest? = null,
-    val error: String? = null
+    val error: String? = null,
+    val emotion: String? = null
 )

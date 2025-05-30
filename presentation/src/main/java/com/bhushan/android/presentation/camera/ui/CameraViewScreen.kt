@@ -1,13 +1,18 @@
 package com.bhushan.android.presentation.camera.ui
 
 import androidx.camera.compose.CameraXViewfinder
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,10 +55,39 @@ fun CameraViewScreen(
     }
 
     if (state.hasPermission) {
-        CameraViewContent(
-            state = state,
+        Column(
             modifier = modifier
-        )
+                .fillMaxSize()
+                .padding(0.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Camera view occupies 70%
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.7f)
+            ) {
+                CameraViewContent(
+                    state = state,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            // Result text occupies 30%
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.3f)
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Emotion: ${state.emotion}",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.displayLarge,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     } else {
         // ... your permission rationale UI ...
         Column(

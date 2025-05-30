@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.accompanist.permissions)
     implementation(libs.camera.lifecycle)
+    implementation(libs.tensordflow.lite)
 
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)

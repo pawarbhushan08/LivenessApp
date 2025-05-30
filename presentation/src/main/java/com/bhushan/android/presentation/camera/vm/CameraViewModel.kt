@@ -3,6 +3,7 @@ package com.bhushan.android.presentation.camera.vm
 import android.content.Context
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.lifecycle.awaitInstance
@@ -19,14 +20,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.tensorflow.lite.Interpreter
+import java.util.concurrent.Executors
 
-class CameraViewModel : ViewModel() {
+class CameraViewModel(
+    interpreter: Interpreter
+) : ViewModel(), EmotionListener {
     private val _state = MutableStateFlow(CameraViewState())
     val state: StateFlow<CameraViewState> = _state.asStateFlow()
 
     private var cameraJob: Job? = null
     private var processCameraProvider: ProcessCameraProvider? = null
 
+    private val emotionAnalyzer = EmotionAnalyzer(interpreter, this)
     private val cameraPreviewUseCase = Preview.Builder().build().apply {
         setSurfaceProvider { newSurfaceRequest ->
             _state.update { it.copy(surfaceRequest = newSurfaceRequest) }
@@ -59,10 +65,18 @@ class CameraViewModel : ViewModel() {
                 val hasCamera = CameraSelector.DEFAULT_BACK_CAMERA
                     .filter(processCameraProvider!!.availableCameraInfos).isNotEmpty()
                 if (hasCamera) {
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build().apply {
+                            // Use emotionAnalyzer for emotion detection,
+                            // or blinkAnalyzer for blink detection.
+                            setAnalyzer(Executors.newSingleThreadExecutor(), emotionAnalyzer)
+                        }
                     processCameraProvider!!.bindToLifecycle(
                         lifecycleOwner ?: return@launch,
                         CameraSelector.DEFAULT_BACK_CAMERA,
-                        cameraPreviewUseCase
+                        cameraPreviewUseCase,
+                        imageAnalysis
                     )
                     _state.update { it.copy(isCameraBound = true, error = null) }
                 } else {
@@ -90,4 +104,9 @@ class CameraViewModel : ViewModel() {
         cameraJob?.cancel()
         processCameraProvider?.unbindAll()
     }
+
+    override fun onEmotionDetected(emotion: String) {
+        _state.update { it.copy(emotion = emotion) }
+    }
+
 }
