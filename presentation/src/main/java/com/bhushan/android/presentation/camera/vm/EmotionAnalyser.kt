@@ -1,27 +1,27 @@
 package com.bhushan.android.presentation.camera.vm
 
-
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
-import com.bhushan.android.presentation.camera.utils.PreprocessingUtils.preprocessGray
+import com.bhushan.android.presentation.camera.utils.ONNXModelHelper
 import com.bhushan.android.presentation.camera.utils.YuvToRgbConverter
 import org.tensorflow.lite.Interpreter
 import java.util.concurrent.atomic.AtomicBoolean
 
-interface EmotionListener {
-    fun onEmotionDetected(emotion: String)
+interface DualEmotionListener {
+    fun onEmotionDetected(tfliteEmotion: String, onnxEmotion: String)
 }
 
-class EmotionAnalyzer(
-    private val interpreter: Interpreter,
-    private val emotionListener: EmotionListener
+class DualEmotionAnalyzer(
+    private val tfliteInterpreter: Interpreter,
+    private val onnxModelHelper: ONNXModelHelper,
+    private val listener: DualEmotionListener
 ) : ImageAnalysis.Analyzer {
 
-    private val inputSize: Int = 48
-    private val labels: List<String> =
+    private val tfliteLabels =
         listOf("Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral")
+    private val onnxLabels = tfliteLabels // Change if your ONNX model has different classes
 
     private val working = AtomicBoolean(false)
 
@@ -33,15 +33,28 @@ class EmotionAnalyzer(
         try {
             val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
             YuvToRgbConverter.yuvToRgb(image, bitmap)
-            val input = preprocessGray(bitmap, inputSize)
-            val output = Array(1) { FloatArray(7) }
-            interpreter.run(input, output)
-            val emotionIdx = output[0].indices.maxByOrNull { output[0][it] } ?: -1
-            val emotion = if (emotionIdx >= 0) labels[emotionIdx] else "Unknown"
-            emotionListener.onEmotionDetected(emotion)
+
+            // TFLite expects 48x48 grayscale
+            val tfliteInput =
+                com.bhushan.android.presentation.camera.utils.PreprocessingUtils.preprocessGray(
+                    bitmap,
+                    48
+                )
+            val tfliteOutput = Array(1) { FloatArray(tfliteLabels.size) }
+            tfliteInterpreter.run(tfliteInput, tfliteOutput)
+            val tfliteIdx = tfliteOutput[0].indices.maxByOrNull { tfliteOutput[0][it] } ?: -1
+            val tfliteEmotion = if (tfliteIdx >= 0) tfliteLabels[tfliteIdx] else "Unknown"
+
+            // ONNX expects 224x224 RGB
+            val onnxOutput =
+                onnxModelHelper.runInference(Bitmap.createScaledBitmap(bitmap, 224, 224, true))
+            val onnxIdx = onnxOutput?.indices?.maxByOrNull { onnxOutput[it] } ?: -1
+            val onnxEmotion = if (onnxIdx >= 0) onnxLabels[onnxIdx] else "Unknown"
+
+            listener.onEmotionDetected(tfliteEmotion, onnxEmotion)
         } catch (e: Exception) {
-            Log.e("EmotionAnalyzerException", e.message, e)
-            emotionListener.onEmotionDetected("Error")
+            Log.e("DualEmotionAnalyzer", e.message, e)
+            listener.onEmotionDetected("Error", "Error")
         } finally {
             image.close()
             working.set(false)

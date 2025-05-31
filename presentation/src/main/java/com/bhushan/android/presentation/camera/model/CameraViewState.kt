@@ -7,5 +7,6 @@ data class CameraViewState(
     val isCameraBound: Boolean = false,
     val surfaceRequest: SurfaceRequest? = null,
     val error: String? = null,
-    val emotion: String? = null
+    val emotionTFLite: String? = null,
+    val emotionONNX: String? = null
 )

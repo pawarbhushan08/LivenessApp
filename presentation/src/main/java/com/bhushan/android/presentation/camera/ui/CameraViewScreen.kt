@@ -73,18 +73,23 @@ fun CameraViewScreen(
                 )
             }
             // Result text occupies 30%
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.3f)
                     .padding(24.dp),
-                contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Emotion: ${state.emotion}",
+                    text = "Emotion TFLite: ${state.emotionTFLite}",
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.displayLarge,
-                    modifier = Modifier.fillMaxWidth()
+                    style = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier.wrapContentSize()
+                )
+                Text(
+                    text = "Emotion Onnx: ${state.emotionONNX}",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.displaySmall,
+                    modifier = Modifier.wrapContentSize()
                 )
             }
         }

@@ -11,6 +11,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import com.bhushan.android.presentation.camera.model.CameraIntent
 import com.bhushan.android.presentation.camera.model.CameraViewState
+import com.bhushan.android.presentation.camera.utils.ONNXModelHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,15 +25,16 @@ import org.tensorflow.lite.Interpreter
 import java.util.concurrent.Executors
 
 class CameraViewModel(
-    interpreter: Interpreter
-) : ViewModel(), EmotionListener {
+    interpreter: Interpreter,
+    private val onnxModelHelper: ONNXModelHelper,
+) : ViewModel(), DualEmotionListener {
     private val _state = MutableStateFlow(CameraViewState())
     val state: StateFlow<CameraViewState> = _state.asStateFlow()
 
     private var cameraJob: Job? = null
     private var processCameraProvider: ProcessCameraProvider? = null
 
-    private val emotionAnalyzer = EmotionAnalyzer(interpreter, this)
+    private val emotionAnalyzer = DualEmotionAnalyzer(interpreter, onnxModelHelper, this)
     private val cameraPreviewUseCase = Preview.Builder().build().apply {
         setSurfaceProvider { newSurfaceRequest ->
             _state.update { it.copy(surfaceRequest = newSurfaceRequest) }
@@ -50,6 +52,7 @@ class CameraViewModel(
                     bindCameraInternal(intent.context, intent.lifecycleOwner)
                 }
             }
+
             is CameraIntent.UnbindCamera -> {
                 unbindCameraInternal()
             }
@@ -105,8 +108,9 @@ class CameraViewModel(
         processCameraProvider?.unbindAll()
     }
 
-    override fun onEmotionDetected(emotion: String) {
-        _state.update { it.copy(emotion = emotion) }
+    // Update both emotions in state
+    override fun onEmotionDetected(tfliteEmotion: String, onnxEmotion: String) {
+        _state.update { it.copy(emotionTFLite = tfliteEmotion, emotionONNX = onnxEmotion) }
     }
 
 }
