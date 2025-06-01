@@ -54,6 +54,13 @@ fun CameraViewScreen(
         }
     }
 
+    // RELEASE CAMERA when composable leaves composition
+    androidx.compose.runtime.DisposableEffect(cameraPermissionState.status.isGranted) {
+        onDispose {
+            viewModel.handleIntent(CameraIntent.UnbindCamera)
+        }
+    }
+
     if (state.hasPermission) {
         Column(
             modifier = modifier

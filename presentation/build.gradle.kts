@@ -41,6 +41,7 @@ android {
 
 dependencies {
 
+    implementation(project(":domain"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -57,8 +58,6 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.accompanist.permissions)
     implementation(libs.camera.lifecycle)
-    implementation(libs.tensordflow.lite)
-    implementation(libs.microsoft.onnxruntime)
 
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
