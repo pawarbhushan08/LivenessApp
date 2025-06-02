@@ -2,6 +2,7 @@ package com.bhushan.android.data.ml.repository
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.util.Log
 import com.bhushan.android.data.utils.ONNXModelLoader
@@ -16,15 +17,19 @@ class EmotionRepositoryImpl(
 
     private val tfliteLabels =
         listOf("Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral")
-    private val onnxLabels = tfliteLabels
+    private val onnxLabels =
+        listOf("Angry", "Disgust", "Fear", "Happy", "Neutral", "Sad", "Surprise")
 
     // Use the provided model loader objects for proper file and interpreter/session management
     private val ortEnv: OrtEnvironment by lazy { OrtEnvironment.getEnvironment() }
     private val tfliteInterpreter: Interpreter by lazy {
         TFLiteModelLoader.loadModel(context, "emotion_model.tflite")
     }
-    private val onnxModelPath: String by lazy {
-        ONNXModelLoader.loadModelFile(context, "model.onnx")
+
+    private val onnxSession: OrtSession by lazy {
+        ortEnv.createSession(
+            ONNXModelLoader.loadModelFile(context, "model.onnx")
+        )
     }
 
     override suspend fun detectEmotionTFLite(image: ImageData): String =
@@ -42,19 +47,16 @@ class EmotionRepositoryImpl(
 
     override suspend fun detectEmotionOnnx(image: ImageData): String =
         try {
-            val session = ortEnv.createSession(onnxModelPath)
             val input = preprocessOnnxInput(image.pixels, image.width, image.height)
             val tensor = OnnxTensor.createTensor(ortEnv, input)
-            val results = session.run(mapOf("pixel_values" to tensor))
+            val results = onnxSession.run(mapOf("pixel_values" to tensor))
             val outputTensor = results[0].value as Array<FloatArray>
-            session.close()
             val idx = outputTensor[0].indices.maxByOrNull { outputTensor[0][it] } ?: -1
             if (idx >= 0) onnxLabels[idx] else "Unknown"
         } catch (e: Exception) {
             Log.e("EmotionRepo", "ONNX error: ${e.message}", e)
             "Error"
         }
-
 
     // --- Preprocessing helpers ---
 
@@ -69,7 +71,7 @@ class EmotionRepositoryImpl(
         return input
     }
 
-    fun preprocessOnnxInput(
+    private fun preprocessOnnxInput(
         pixels: FloatArray,
         width: Int = 224,
         height: Int = 224

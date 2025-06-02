@@ -9,10 +9,20 @@ class DetectEmotionUseCase(
 ) {
     suspend operator fun invoke(
         tfLiteImageData: ImageData,
-        onnxImageData: ImageData
+        selectedModel: MLModelType
     ): EmotionResult {
-        val tflite = repo.detectEmotionTFLite(tfLiteImageData)
-        val onnx = repo.detectEmotionOnnx(onnxImageData)
-        return EmotionResult(tflite, onnx)
+        return when (selectedModel) {
+            MLModelType.TFLITE -> {
+                EmotionResult(repo.detectEmotionTFLite(tfLiteImageData))
+            }
+
+            MLModelType.ONNX -> {
+                EmotionResult(repo.detectEmotionOnnx(tfLiteImageData))
+            }
+        }
     }
+}
+
+enum class MLModelType {
+    TFLITE, ONNX
 }

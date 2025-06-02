@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bhushan.android.domain.ml.model.EmotionResult
 import com.bhushan.android.domain.ml.usecase.DetectEmotionUseCase
+import com.bhushan.android.domain.ml.usecase.MLModelType
 import com.bhushan.android.presentation.camera.model.CameraIntent
 import com.bhushan.android.presentation.camera.model.CameraViewState
 import kotlinx.coroutines.Job
@@ -23,6 +24,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
+enum class ModelType {
+    TFLITE, ONNX;
+
+    fun mapToMLModelType(): MLModelType = when (this) {
+        TFLITE -> MLModelType.TFLITE
+        else -> MLModelType.ONNX
+    }
+}
+
 class CameraViewModel(
     private val detectEmotionUseCase: DetectEmotionUseCase
 ) : ViewModel(), DualEmotionListener {
@@ -32,10 +42,24 @@ class CameraViewModel(
     private var cameraJob: Job? = null
     private var processCameraProvider: ProcessCameraProvider? = null
 
-    private val emotionAnalyzer = DualEmotionAnalyzer(detectEmotionUseCase, this, viewModelScope)
+    // Keep track of the latest context/lifecycleOwner for rebinding
+    private var lastContext: Context? = null
+    private var lastLifecycleOwner: LifecycleOwner? = null
+
     private val cameraPreviewUseCase = Preview.Builder().build().apply {
         setSurfaceProvider { newSurfaceRequest ->
             _state.update { it.copy(surfaceRequest = newSurfaceRequest) }
+        }
+    }
+
+    fun selectModel(model: ModelType) {
+        _state.update { it.copy(modelType = model) }
+        // Rebind camera to apply new analyzer if already bound
+        if (_state.value.isCameraBound) {
+            unbindCameraInternal()
+            if (_state.value.hasPermission && lastContext != null && lastLifecycleOwner != null) {
+                bindCameraInternal(lastContext, lastLifecycleOwner)
+            }
         }
     }
 
@@ -47,6 +71,8 @@ class CameraViewModel(
 
             is CameraIntent.BindCamera -> {
                 if (_state.value.hasPermission && !_state.value.isCameraBound) {
+                    lastContext = intent.context
+                    lastLifecycleOwner = intent.lifecycleOwner
                     bindCameraInternal(intent.context, intent.lifecycleOwner)
                 }
             }
@@ -77,7 +103,14 @@ class CameraViewModel(
                     val imageAnalysis = ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build().apply {
-                            setAnalyzer(Executors.newSingleThreadExecutor(), emotionAnalyzer)
+                            setAnalyzer(
+                                Executors.newSingleThreadExecutor(), DualEmotionAnalyzer(
+                                    detectEmotionUseCase,
+                                    this@CameraViewModel,
+                                    viewModelScope,
+                                    _state.value.modelType
+                                )
+                            )
                         }
                     processCameraProvider!!.bindToLifecycle(
                         lifecycleOwner ?: return@launch,
@@ -113,8 +146,7 @@ class CameraViewModel(
     override fun onEmotionDetected(result: EmotionResult) {
         _state.update {
             it.copy(
-                emotionTFLite = result.tfliteEmotion,
-                emotionONNX = result.onnxEmotion
+                emotionResult = result.emotion
             )
         }
 

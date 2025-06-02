@@ -4,15 +4,18 @@ import androidx.camera.compose.CameraXViewfinder
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bhushan.android.presentation.camera.model.CameraIntent
 import com.bhushan.android.presentation.camera.model.CameraViewState
 import com.bhushan.android.presentation.camera.vm.CameraViewModel
+import com.bhushan.android.presentation.camera.vm.ModelType
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -79,21 +83,30 @@ fun CameraViewScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
+
+            ModelSelector(
+                modifier = Modifier.weight(0.1f),
+                selectedModel = state.modelType,
+                onModelSelected = {
+                    viewModel.selectModel(it)
+                    // After selection, if permission and bound, rebind
+                    viewModel.handleIntent(CameraIntent.BindCamera(context, lifecycleOwner))
+                }
+            )
+
             // Result text occupies 30%
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.3f)
+                    .weight(0.2f)
                     .padding(24.dp),
             ) {
+                val text = when (state.modelType) {
+                    ModelType.TFLITE -> "Emotion TFLite: ${state.emotionResult}"
+                    else -> "Emotion ONNX: ${state.emotionResult}"
+                }
                 Text(
-                    text = "Emotion TFLite: ${state.emotionTFLite}",
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.wrapContentSize()
-                )
-                Text(
-                    text = "Emotion Onnx: ${state.emotionONNX}",
+                    text = text,
                     textAlign = TextAlign.Center,
                     style = MaterialTheme.typography.displaySmall,
                     modifier = Modifier.wrapContentSize()
@@ -125,6 +138,51 @@ fun CameraViewScreen(
     // Optionally show errors from state
     state.error?.let { error ->
         // Show error dialog/toast/snackbar as needed
+    }
+}
+
+@Composable
+fun ModelSelector(
+    modifier: Modifier = Modifier,
+    selectedModel: ModelType,
+    onModelSelected: (ModelType) -> Unit
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButtonWithLabel(
+            label = "TFLite",
+            selected = selectedModel == ModelType.TFLITE,
+            onClick = { onModelSelected(ModelType.TFLITE) }
+        )
+        Spacer(Modifier.width(24.dp))
+        RadioButtonWithLabel(
+            label = "ONNX",
+            selected = selectedModel == ModelType.ONNX,
+            onClick = { onModelSelected(ModelType.ONNX) }
+        )
+    }
+}
+
+@Composable
+fun RadioButtonWithLabel(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(horizontal = 8.dp)
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick
+        )
+        Text(text = label)
     }
 }
 
