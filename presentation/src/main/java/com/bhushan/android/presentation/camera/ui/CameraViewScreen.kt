@@ -94,7 +94,7 @@ fun CameraViewScreen(
                 }
             )
 
-            // Result text occupies 30%
+            // Result text occupies 20%
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
